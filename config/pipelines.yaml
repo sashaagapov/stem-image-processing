@@ -32,15 +32,18 @@ members:
 
   member2:
     pipeline1:
-      description: "Фільтрація (Gaussian/Box) -> Морфологія (ерозія/дилатація) -> Контурний аналіз (Laplacian)"
+      description: "Фільтрація (білатеральна) -> Бінарна морфологія (ерозія/дилатація) -> Контурний аналіз (Laplacian)"
       stages:
-        - module: src.member2.pipeline1.stage_1_gaussian_filter
+        - module: src.member2.pipeline1.stage_1_bilateral_filter
           params:
-            sigma: 1.5          # прибирає зерно, але не зливає вузькі дороги (~3-5 px на 256x256)
+            sigma_spatial: 2    # вікно 9x9: ширше за зерно шуму, вужче за дорогу (~4-5 px)
+            sigma_range: 50     # шум sigma~25 згладжується; межі з різницею кольору >100 (дах/поле) не змішуються
         - module: src.member2.pipeline1.stage_2_morphology
           params:
-            window_size: 3      # деталі менші за 3x3 (авто, відблиски) прибираються
-            operation: opening  # erosion | dilation | opening | closing
+            operation: erosion  # erosion | dilation; ерозія прибирає світлі деталі тонші за диск (машини, відблиски)
+            radius: 1           # хрестик 3x3: прибирає лише 1-2-піксельне сміття, будівлі (~6+ px) лишаються
+            threshold: mean     # "mean" або число 0..255
+            invert: false       # true — якщо об'єкт темніший за фон (вода, тіні)
         - module: src.member2.pipeline1.stage_3_laplacian
           params:
             neighbors: 8        # 4 | 8; 8 реагує й на діагональні межі
