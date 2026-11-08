@@ -1,18 +1,28 @@
 """Стадія 1 пайплайну 1 (member2): Фільтрація — Gaussian blur (не з ЛР5-6).
 
-TODO(member2): реалізувати вручну (без готових функцій бібліотек комп'ютерного
-зору — Pillow/numpy можна використовувати лише для вводу/виводу та базової
-математики, не для самого алгоритму). Підказка: Побудувати 2D гаусове ядро за формулою G(x,y)=exp(-(x^2+y^2)/(2*sigma^2)), нормалізувати, згорнути з зображенням вручну.
+Згладжування гаусовим ядром прибирає дрібний шум знімка (зерно сенсора,
+JPEG-артефакти), щоб наступні стадії (морфологія, Лаплас) реагували на межі
+ділянок, а не на шум. Кожен канал RGB згортається окремо, кольори зберігаються.
 
-Поки що — заглушка: повертає зображення без змін, щоб pipeline_runner.py міг
-виконати весь пайплайн end-to-end вже зараз (common/ тестується незалежно від
-того, чи готові особисті стадії).
+Параметри (config/pipelines.yaml):
+    sigma  — ширина ядра; більше sigma — сильніше розмиття.
+    radius — половина розміру ядра; якщо не задано, ceil(3 * sigma).
 """
 from __future__ import annotations
 
+import numpy as np
 from PIL import Image
 
+from src.member2.image_ops import convolve2d, from_array, gaussian_kernel, to_rgb_array
 
-def apply(image: Image.Image, sigma: float = 2.0) -> Image.Image:
-    # TODO(member2): замінити заглушку на реальну реалізацію Gaussian blur (не з ЛР5-6).
-    return image.convert("RGB")
+
+def gaussian_blur_array(array: np.ndarray, sigma: float, radius: int | None = None) -> np.ndarray:
+    """Розмиття масиву H x W або H x W x 3 (кожен канал окремо)."""
+    kernel = gaussian_kernel(sigma, radius)
+    if array.ndim == 2:
+        return convolve2d(array, kernel)
+    return np.stack([convolve2d(array[..., c], kernel) for c in range(array.shape[2])], axis=2)
+
+
+def apply(image: Image.Image, sigma: float = 2.0, radius: int | None = None) -> Image.Image:
+    return from_array(gaussian_blur_array(to_rgb_array(image), sigma, radius))
