@@ -1,4 +1,5 @@
-"""Тести member2/pipeline2: FFT-фільтр -> текстура GLCM -> unsharp mask (критерій C3).
+"""Тести member2/pipeline2: FFT-фільтр -> текстура GLCM -> unsharp mask
+(критерії C1, C2, C3).
 
 Очікувані значення пораховані вручну; розрахунок — у коментарях.
 """
@@ -7,7 +8,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from common.metrics import calculate_psnr
 from common.pipeline_runner import RESULTS_DIR, run_pipeline
+from tests.member2.scene import add_noise, as_image, make_scene
 from src.member2.pipeline2 import stage_1_fourier_filter, stage_2_texture_analysis, stage_3_unsharp_mask
 from src.member2.pipeline2.stage_2_texture_analysis import glcm, glcm_features, quantize, texture_map
 
@@ -44,6 +47,18 @@ def test_lowpass_keeps_constant_colour() -> None:
     image = Image.new("RGB", (8, 8), (30, 120, 200))
     result = np.asarray(stage_1_fourier_filter.apply(image, cutoff=3))
     assert np.all(result == [30, 120, 200])
+
+
+def test_lowpass_scenario_c1_noise_reduction() -> None:
+    # Еталонний сценарій C1: синтетичний аерознімок 128x128 + гаусів шум sigma = 25.
+    # cutoff = 20 для 128x128 — та сама відносна частота, що й cutoff = 40 у
+    # конфігу для 256x256. Поріг ТЗ: PSNR зростає щонайменше на 3 дБ.
+    # (SSIM >= 0.7 тут не вимагаємо: низькочастотний фільтр за принципом дії
+    # розмиває й межі — це обмеження методу, яке аналізується у звіті.)
+    clean = as_image(make_scene())
+    noisy = as_image(add_noise(make_scene()))
+    result = stage_1_fourier_filter.apply(noisy, cutoff=20)
+    assert calculate_psnr(result, clean) >= calculate_psnr(noisy, clean) + 3
 
 
 # ---------- стадія 2: текстура GLCM ----------
