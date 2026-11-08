@@ -72,6 +72,16 @@ def gaussian_kernel(sigma: float, radius: int | None = None) -> np.ndarray:
     return kernel / kernel.sum()
 
 
+def gaussian_blur(array: np.ndarray, sigma: float, radius: int | None = None) -> np.ndarray:
+    """Гаусове розмиття масиву H x W або H x W x 3 (кожен канал окремо).
+    Окремою стадією не використовується (Гаусів фільтр був у ЛР6) — лише як
+    допоміжний крок усередині unsharp mask."""
+    kernel = gaussian_kernel(sigma, radius)
+    if array.ndim == 2:
+        return convolve2d(array, kernel)
+    return np.stack([convolve2d(array[..., c], kernel) for c in range(array.shape[2])], axis=2)
+
+
 def box_mean(array: np.ndarray, window: int) -> np.ndarray:
     """Середнє у вікні window x window навколо кожного пікселя через інтегральне
     зображення (summed-area table): сума у прямокутнику = 4 звертання до таблиці."""
