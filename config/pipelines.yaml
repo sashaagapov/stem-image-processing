@@ -1,0 +1,80 @@
+# Реєстр усіх пайплайнів команди. pipeline_runner.py читає цей файл і виконує
+# стадії по черзі: кожна стадія — функція apply(image, **params) з відповідного
+# модуля. Параметри змінюються тут, а не в коді.
+#
+# Поки стадії — заглушки (повертають зображення без змін), щоб спільну
+# інфраструктуру (common/) можна було перевірити вже зараз, до того, як
+# кожен учасник реалізує свої методи.
+
+members:
+  member1:
+    pipeline1:
+      description: "Контурний аналіз (Sobel) -> Гістограмна корекція -> Геометричні перетворення"
+      stages:
+        - module: src.member1.pipeline1.stage_1_sobel
+          params:
+            threshold: 100
+        - module: src.member1.pipeline1.stage_2_histogram_equalization
+          params: {}
+        - module: src.member1.pipeline1.stage_3_geometric_transform
+          params:
+            angle_degrees: 15
+            scale: 1.0
+    pipeline2:
+      description: "Колірна корекція (HSV/баланс білого) -> Сегментація (Otsu) -> Статистичні характеристики"
+      stages:
+        - module: src.member1.pipeline2.stage_1_color_correction
+          params: {}
+        - module: src.member1.pipeline2.stage_2_otsu_segmentation
+          params: {}
+        - module: src.member1.pipeline2.stage_3_statistics
+          params: {}
+
+  member2:
+    pipeline1:
+      description: "Фільтрація (Gaussian/Box) -> Морфологія (ерозія/дилатація) -> Контурний аналіз (Laplacian)"
+      stages:
+        - module: src.member2.pipeline1.stage_1_gaussian_filter
+          params:
+            sigma: 2.0
+        - module: src.member2.pipeline1.stage_2_morphology
+          params:
+            window_size: 3
+        - module: src.member2.pipeline1.stage_3_laplacian
+          params: {}
+    pipeline2:
+      description: "Перетворення Фур'є -> Аналіз текстур -> Ретушування (unsharp mask)"
+      stages:
+        - module: src.member2.pipeline2.stage_1_fourier_filter
+          params:
+            cutoff: 30
+        - module: src.member2.pipeline2.stage_2_texture_analysis
+          params: {}
+        - module: src.member2.pipeline2.stage_3_unsharp_mask
+          params:
+            amount: 1.0
+
+  member3:
+    pipeline1:
+      description: "Ключові точки (Харріс) -> Морфологія (відкриття/закриття) -> Сегментація (регіональне зростання)"
+      stages:
+        - module: src.member3.pipeline1.stage_1_harris_corners
+          params:
+            threshold: 0.01
+        - module: src.member3.pipeline1.stage_2_morphology_open_close
+          params:
+            window_size: 3
+        - module: src.member3.pipeline1.stage_3_region_growing
+          params:
+            seed_threshold: 20
+    pipeline2:
+      description: "Перетворення Хафа (лінії/кола) -> Геометричні перетворення (афінні) -> Колірна корекція"
+      stages:
+        - module: src.member3.pipeline2.stage_1_hough_transform
+          params: {}
+        - module: src.member3.pipeline2.stage_2_affine_transform
+          params: {}
+        - module: src.member3.pipeline2.stage_3_brightness_contrast
+          params:
+            brightness: 0
+            contrast: 1.1
