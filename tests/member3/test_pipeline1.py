@@ -1,29 +1,56 @@
-"""Шаблон тесту для member3/pipeline1 (критерій C3: короткий тест на малому
-зображенні з вручну порахованим очікуваним результатом).
-
-ПОКИ ЩО тест перевіряє лише поведінку заглушки (apply() повертає зображення
-без змін). Коли stage_1_harris_corners отримає реальну реалізацію — замініть
-test_apply_matches_stub_behaviour нижче на справжню перевірку: невелике
-зображення (3x3 чи 5x5), очікуваний результат, порахований вручну.
-"""
+"""Hand-computed C3 tests for every stage of member3/pipeline1."""
+import numpy as np
 from PIL import Image
 
-from src.member3.pipeline1.stage_1_harris_corners import apply
+from src.member3.pipeline1.stage_1_harris_corners import apply as harris
+from src.member3.pipeline1.stage_2_morphology_open_close import apply as morphology
+from src.member3.pipeline1.stage_3_region_growing import apply as region_growing
 
 
-def test_apply_matches_stub_behaviour() -> None:
-    image = Image.new("RGB", (4, 4), (10, 20, 30))
-
-    result = apply(image)
-
-    assert result.size == image.size
-    # TODO(member3): замінити на перевірку реального результату алгоритму,
-    # коли stage_1_harris_corners.apply() перестане бути заглушкою.
+def _gray_image(rows: list[list[int]]) -> Image.Image:
+    return Image.fromarray(np.array(rows, dtype=np.uint8)).convert("RGB")
 
 
-def test_apply_accepts_small_image() -> None:
-    tiny_image = Image.new("RGB", (3, 3), (5, 5, 5))
+def _values(image: Image.Image) -> list[list[int]]:
+    return np.asarray(image)[:, :, 0].tolist()
 
-    result = apply(tiny_image)
 
-    assert result.size == (3, 3)
+def test_harris_keeps_a_uniform_three_by_three_image() -> None:
+    image = Image.new("RGB", (3, 3), (10, 20, 30))
+
+    result = harris(image, threshold=0.01, harris_k=0.04, window_size=3)
+
+    # All horizontal and vertical differences are zero, so every R is zero.
+    assert list(result.getdata()) == [(10, 20, 30)] * 9
+
+
+def test_opening_then_closing_removes_an_isolated_white_pixel() -> None:
+    image = _gray_image(
+        [
+            [255, 0, 0, 0, 0],
+            [0, 255, 255, 255, 0],
+            [0, 255, 255, 255, 0],
+            [0, 255, 255, 255, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
+
+    result = morphology(image, window_size=3, threshold=128)
+
+    # A 3x3 erosion removes the lone corner pixel; dilation restores the central 3x3 square.
+    assert _values(result) == [
+        [0, 0, 0, 0, 0],
+        [0, 255, 255, 255, 0],
+        [0, 255, 255, 255, 0],
+        [0, 255, 255, 255, 0],
+        [0, 0, 0, 0, 0],
+    ]
+
+
+def test_region_growing_renders_two_constant_regions() -> None:
+    image = _gray_image([[10, 10, 200], [10, 10, 200], [10, 10, 200]])
+
+    result = region_growing(image, seed_threshold=5, connectivity=4)
+
+    # Difference inside a group is 0, while 200 - 10 = 190 exceeds the threshold.
+    assert _values(result) == [[10, 10, 200], [10, 10, 200], [10, 10, 200]]
