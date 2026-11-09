@@ -24,10 +24,10 @@ def test_harris_keeps_a_uniform_three_by_three_image() -> None:
     assert list(result.getdata()) == [(10, 20, 30)] * 9
 
 
-def test_opening_then_closing_removes_an_isolated_white_pixel() -> None:
+def test_thinning_reduces_a_solid_three_by_three_square_to_its_centre() -> None:
     image = _gray_image(
         [
-            [255, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
             [0, 255, 255, 255, 0],
             [0, 255, 255, 255, 0],
             [0, 255, 255, 255, 0],
@@ -35,14 +35,14 @@ def test_opening_then_closing_removes_an_isolated_white_pixel() -> None:
         ]
     )
 
-    result = morphology(image, window_size=3, threshold=128)
+    result = morphology(image, threshold=128, max_iterations=20)
 
-    # A 3x3 erosion removes the lone corner pixel; dilation restores the central 3x3 square.
+    # Zhang-Suen deletes only boundary pixels while preserving connectivity, leaving the centre.
     assert _values(result) == [
         [0, 0, 0, 0, 0],
-        [0, 255, 255, 255, 0],
-        [0, 255, 255, 255, 0],
-        [0, 255, 255, 255, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, 255, 0, 0],
+        [0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0],
     ]
 
