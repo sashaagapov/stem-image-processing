@@ -32,27 +32,40 @@ members:
 
   member2:
     pipeline1:
-      description: "Фільтрація (Gaussian/Box) -> Морфологія (ерозія/дилатація) -> Контурний аналіз (Laplacian)"
+      description: "Фільтрація (білатеральна) -> Бінарна морфологія (ерозія/дилатація) -> Контурний аналіз (Laplacian)"
       stages:
-        - module: src.member2.pipeline1.stage_1_gaussian_filter
+        - module: src.member2.pipeline1.stage_1_bilateral_filter
           params:
-            sigma: 2.0
+            sigma_spatial: 2    # вікно 9x9: ширше за зерно шуму, вужче за дорогу (~4-5 px)
+            sigma_range: 50     # шум sigma~25 згладжується; межі з різницею кольору >100 (дах/поле) не змішуються
         - module: src.member2.pipeline1.stage_2_morphology
           params:
-            window_size: 3
+            operation: erosion  # erosion | dilation; ерозія прибирає світлі деталі тонші за диск (машини, відблиски)
+            radius: 1           # хрестик 3x3: прибирає лише 1-2-піксельне сміття, будівлі (~6+ px) лишаються
+            threshold: mean     # "mean" або число 0..255
+            invert: false       # true — якщо об'єкт темніший за фон (вода, тіні)
         - module: src.member2.pipeline1.stage_3_laplacian
-          params: {}
+          params:
+            neighbors: 8        # 4 | 8; 8 реагує й на діагональні межі
     pipeline2:
       description: "Перетворення Фур'є -> Аналіз текстур -> Ретушування (unsharp mask)"
       stages:
         - module: src.member2.pipeline2.stage_1_fourier_filter
           params:
-            cutoff: 30
+            cutoff: 40          # радіус у частотах; для 256x256 лишає структури від ~6 px
+            mode: lowpass       # lowpass | highpass
+            kind: gaussian      # gaussian (без "дзвону") | ideal
         - module: src.member2.pipeline2.stage_2_texture_analysis
-          params: {}
+          params:
+            feature: contrast   # contrast | dissimilarity | homogeneity
+            window: 9
+            levels: 16
+            distance: 1
+            angle: 0            # 0 | 45 | 90 | 135
         - module: src.member2.pipeline2.stage_3_unsharp_mask
           params:
             amount: 1.0
+            sigma: 2.0
 
   member3:
     pipeline1:
