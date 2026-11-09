@@ -1,39 +1,67 @@
-"""Binary opening followed by closing, implemented with a square kernel."""
+"""Binary morphological thinning implemented with the Zhang-Suen algorithm."""
 from __future__ import annotations
 
 import numpy as np
 from PIL import Image
 
 
-def _erode(mask: np.ndarray, window_size: int) -> np.ndarray:
-    radius = window_size // 2
-    padded = np.pad(mask, radius, mode="constant", constant_values=False)
-    result = np.ones_like(mask, dtype=bool)
-    for row_offset in range(window_size):
-        for column_offset in range(window_size):
-            result &= padded[row_offset : row_offset + mask.shape[0], column_offset : column_offset + mask.shape[1]]
-    return result
+def _transitions(neighbours: tuple[int, ...]) -> int:
+    """Count 0-to-1 transitions in a circular sequence of eight neighbours."""
+    return sum(neighbours[index] == 0 and neighbours[(index + 1) % 8] == 1 for index in range(8))
 
 
-def _dilate(mask: np.ndarray, window_size: int) -> np.ndarray:
-    radius = window_size // 2
-    padded = np.pad(mask, radius, mode="constant", constant_values=False)
-    result = np.zeros_like(mask, dtype=bool)
-    for row_offset in range(window_size):
-        for column_offset in range(window_size):
-            result |= padded[row_offset : row_offset + mask.shape[0], column_offset : column_offset + mask.shape[1]]
-    return result
+def _removable_pixels(mask: np.ndarray, first_subiteration: bool) -> list[tuple[int, int]]:
+    """Return foreground pixels removable in one Zhang-Suen subiteration."""
+    removable: list[tuple[int, int]] = []
+    height, width = mask.shape
+    for row in range(1, height - 1):
+        for column in range(1, width - 1):
+            if not mask[row, column]:
+                continue
+            # P2 .. P9, clockwise from north to north-west.
+            neighbours = (
+                int(mask[row - 1, column]),
+                int(mask[row - 1, column + 1]),
+                int(mask[row, column + 1]),
+                int(mask[row + 1, column + 1]),
+                int(mask[row + 1, column]),
+                int(mask[row + 1, column - 1]),
+                int(mask[row, column - 1]),
+                int(mask[row - 1, column - 1]),
+            )
+            neighbour_count = sum(neighbours)
+            if not 2 <= neighbour_count <= 6 or _transitions(neighbours) != 1:
+                continue
+            north, east, south, west = neighbours[0], neighbours[2], neighbours[4], neighbours[6]
+            if first_subiteration:
+                preserves_connectivity = north * east * south == 0 and east * south * west == 0
+            else:
+                preserves_connectivity = north * east * west == 0 and north * south * west == 0
+            if preserves_connectivity:
+                removable.append((row, column))
+    return removable
 
 
-def apply(image: Image.Image, window_size: int = 3, threshold: int = 128) -> Image.Image:
-    """Remove small bright noise by opening, then fill small dark holes by closing."""
-    if window_size < 1 or window_size % 2 == 0:
-        raise ValueError("window_size must be a positive odd number")
+def apply(image: Image.Image, threshold: int = 128, max_iterations: int = 100) -> Image.Image:
+    """Reduce bright binary regions to one-pixel-wide connected skeletons."""
     if not 0 <= threshold <= 255:
         raise ValueError("threshold must be between 0 and 255")
+    if max_iterations < 1:
+        raise ValueError("max_iterations must be positive")
+
     rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
     luminance = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
-    opened = _dilate(_erode(luminance >= threshold, window_size), window_size)
-    closed = _erode(_dilate(opened, window_size), window_size)
-    binary = np.where(closed, 255, 0).astype(np.uint8)
+    mask = luminance >= threshold
+    for _ in range(max_iterations):
+        first = _removable_pixels(mask, first_subiteration=True)
+        if first:
+            for row, column in first:
+                mask[row, column] = False
+        second = _removable_pixels(mask, first_subiteration=False)
+        if second:
+            for row, column in second:
+                mask[row, column] = False
+        if not first and not second:
+            break
+    binary = np.where(mask, 255, 0).astype(np.uint8)
     return Image.fromarray(np.repeat(binary[:, :, None], 3, axis=2))

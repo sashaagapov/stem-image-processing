@@ -69,7 +69,7 @@ members:
 
   member3:
     pipeline1:
-      description: "Ключові точки (Харріс) -> Морфологія (відкриття/закриття) -> Сегментація (регіональне зростання)"
+      description: "Ключові точки (Харріс) -> Морфологія (стоншення) -> Сегментація (регіональне зростання)"
       stages:
         - module: src.member3.pipeline1.stage_1_harris_corners
           params:
@@ -78,8 +78,8 @@ members:
             window_size: 3
         - module: src.member3.pipeline1.stage_2_morphology_open_close
           params:
-            window_size: 3
             threshold: 128
+            max_iterations: 100
         - module: src.member3.pipeline1.stage_3_region_growing
           params:
             seed_threshold: 20
