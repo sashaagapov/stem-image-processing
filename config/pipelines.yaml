@@ -74,19 +74,33 @@ members:
         - module: src.member3.pipeline1.stage_1_harris_corners
           params:
             threshold: 0.01
+            harris_k: 0.04
+            window_size: 3
         - module: src.member3.pipeline1.stage_2_morphology_open_close
           params:
             window_size: 3
+            threshold: 128
         - module: src.member3.pipeline1.stage_3_region_growing
           params:
             seed_threshold: 20
+            connectivity: 4
     pipeline2:
       description: "Перетворення Хафа (лінії/кола) -> Геометричні перетворення (афінні) -> Колірна корекція"
       stages:
         - module: src.member3.pipeline2.stage_1_hough_transform
-          params: {}
+          params:
+            edge_threshold: 100
+            theta_steps: 180
+            vote_threshold: 30
+            max_lines: 1
         - module: src.member3.pipeline2.stage_2_affine_transform
-          params: {}
+          params:
+            angle_degrees: 0.0
+            scale_x: 1.0
+            scale_y: 1.0
+            translate_x: 0.0
+            translate_y: 0.0
+            fill_value: 0
         - module: src.member3.pipeline2.stage_3_brightness_contrast
           params:
             brightness: 0
