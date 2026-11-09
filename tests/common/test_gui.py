@@ -36,5 +36,8 @@ def test_window_builds_with_all_six_pipelines():
         app = gui.App(root)
         assert len(app.pipeline_box["values"]) == 6
         assert app.pipeline_box.current() == 2
+        root.update_idletasks()
+        # порожні рамки під картинки мають бути в пікселях, а не в символах (вікно не на весь екран)
+        assert root.winfo_reqwidth() < 1400 and root.winfo_reqheight() < 800
     finally:
         root.destroy()

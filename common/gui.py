@@ -82,9 +82,11 @@ class App:
 
         gallery = ttk.Frame(frame)
         gallery.grid(row=3, column=0, columnspan=4, pady=6)
+        # Сіра заглушка потрібного розміру: без картинки Label рахує розмір у символах, а не в пікселях.
+        self._placeholder = ImageTk.PhotoImage(Image.new("RGB", (THUMB_SIZE, THUMB_SIZE), "#e6e6e6"))
         self.image_labels, self.caption_labels = [], []
         for column in range(4):
-            image_label = tk.Label(gallery, width=THUMB_SIZE, height=THUMB_SIZE, bg="#e6e6e6")
+            image_label = tk.Label(gallery, image=self._placeholder)
             image_label.grid(row=0, column=column, padx=4)
             caption = ttk.Label(gallery, text="", wraplength=THUMB_SIZE, justify="center")
             caption.grid(row=1, column=column, pady=(2, 0))
@@ -138,10 +140,10 @@ class App:
                 thumb = result["images"][index].convert("RGB").resize((THUMB_SIZE, THUMB_SIZE), Image.NEAREST)
                 photo = ImageTk.PhotoImage(thumb)
                 self._photos.append(photo)
-                label.config(image=photo, width=THUMB_SIZE, height=THUMB_SIZE)
+                label.config(image=photo)
                 self.caption_labels[index].config(text=captions[index])
             else:
-                label.config(image="")
+                label.config(image=self._placeholder)
                 self.caption_labels[index].config(text="")
         metrics = result["metrics"]
         self.metrics_label.config(text=f"MSE = {metrics['mse_vs_original']}     "
