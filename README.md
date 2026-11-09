@@ -31,6 +31,7 @@ common/                  СПІЛЬНА інфраструктура коман�
   metrics.py              PSNR / MSE / SSIM — реалізовані вручну
   pipeline_runner.py       Виконує обраний пайплайн за конфігом
   cli.py                   Командний рядок: --member --pipeline --image
+  gui.py                   Віконна програма (Tkinter): усі 6 пайплайнів, стадії в одному вікні
   compare.py               Зведене порівняння всіх пайплайнів команди
 src/
   member1/pipeline1/ ...  Особиста зона кожного учасника (2 пайплайни кожен)
@@ -90,3 +91,23 @@ python -m common.cli --member member1 --pipeline pipeline1 --image data/samples/
 # повний прогін усіх пайплайнів на всій вибірці + метрики:
 python -m common.compare
 ```
+
+### Програма з вікном (Windows, Visual Studio)
+
+Один раз підготувати проєкт (у терміналі, з кореня репозиторію):
+
+```bash
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Запуск у Visual Studio: **Файл → Відкрити → Папка** → корінь репозиторію;
+у Solution Explorer правою кнопкою на `common/gui.py` → **Set as Startup Item** → **▶ Пуск**.
+Без Visual Studio: `.\.venv\Scripts\python.exe common\gui.py`.
+
+У вікні: обрати пайплайн зі списку (1–6) → обрати знімок кнопкою «Обрати файл…»
+(або вписати ім'я з `data/samples`) → «▶ Запустити». Оригінал і результат кожної стадії
+показуються у вікні, під ними — MSE / PSNR / SSIM; «Відкрити папку» відкриває
+`results/<member>/<pipeline>/<знімок>/`. Tkinter входить до складу Python, окремо
+встановлювати нічого не треба. Якщо програму запущено не тим Python, вона сама
+перезапускається через `.venv`.
