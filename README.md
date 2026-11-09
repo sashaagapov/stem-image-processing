@@ -31,7 +31,8 @@ common/                  СПІЛЬНА інфраструктура коман�
   metrics.py              PSNR / MSE / SSIM — реалізовані вручну
   pipeline_runner.py       Виконує обраний пайплайн за конфігом
   cli.py                   Командний рядок: --member --pipeline --image
-  menu.py                  Консольне меню: усі 6 пайплайнів, картинка «до/після»
+  gui.py                   Віконна програма (Tkinter): усі 6 пайплайнів, стадії в одному вікні
+  menu.py                  Консольне меню: те саме в консолі, картинка «до/після»
   compare.py               Зведене порівняння всіх пайплайнів команди
 src/
   member1/pipeline1/ ...  Особиста зона кожного учасника (2 пайплайни кожен)
@@ -92,7 +93,7 @@ python -m common.cli --member member1 --pipeline pipeline1 --image data/samples/
 python -m common.compare
 ```
 
-### Консольне меню (Windows, Visual Studio)
+### Програма з вікном і консольне меню (Windows, Visual Studio)
 
 Один раз підготувати проєкт (у терміналі, з кореня репозиторію):
 
@@ -102,10 +103,17 @@ py -m venv .venv
 ```
 
 Запуск у Visual Studio: **Файл → Відкрити → Папка** → корінь репозиторію;
-у Solution Explorer правою кнопкою на `common/menu.py` → **Set as Startup Item** → **▶ Пуск**.
-Без Visual Studio: `.\.venv\Scripts\python.exe common\menu.py`.
+у Solution Explorer правою кнопкою на `common/gui.py` → **Set as Startup Item** → **▶ Пуск**.
+Без Visual Studio: `.\.venv\Scripts\python.exe common\gui.py`.
 
-У меню: номер пайплайна (1–6) → шлях до знімка або ім'я з `data/samples`
+У вікні: обрати пайплайн зі списку (1–6) → обрати знімок кнопкою «Обрати файл…»
+(або вписати ім'я з `data/samples`) → «▶ Запустити». Оригінал і результат кожної стадії
+показуються у вікні, під ними — MSE / PSNR / SSIM; «Відкрити папку» відкриває
+`results/<member>/<pipeline>/<знімок>/`. Tkinter входить до складу Python, окремо
+встановлювати нічого не треба.
+
+Консольний варіант — `common/menu.py` (так само як Startup Item або
+`.\.venv\Scripts\python.exe common\menu.py`). У меню: номер пайплайна (1–6) → шлях до знімка або ім'я з `data/samples`
 (Enter — `river_02.jpg`) → програма виводить стадії й метрики, зберігає результати
 в `results/<member>/<pipeline>/<знімок>/` і відкриває `comparison.png` (оригінал і всі
 стадії в один ряд). `T` — запустити всі тести, `0` — вихід. Якщо меню запущено не тим
