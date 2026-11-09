@@ -187,8 +187,15 @@ class App:
         self.folder_button.config(state="normal")
 
     def open_folder(self) -> None:
-        if self.output_dir:
+        if not self.output_dir:
+            return
+        # os.startfile існує лише на Windows; на macOS/Linux відкриваємо через ОС-команду.
+        if hasattr(os, "startfile"):
             os.startfile(self.output_dir)
+        elif sys.platform == "darwin":
+            subprocess.run(["open", str(self.output_dir)])
+        else:
+            subprocess.run(["xdg-open", str(self.output_dir)])
 
 
 def main() -> None:
