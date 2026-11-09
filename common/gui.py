@@ -2,7 +2,7 @@
 
 Запуск: кнопка «Пуск» у Visual Studio (Startup Item — common/gui.py) або
     .venv\\Scripts\\python.exe common\\gui.py
-Логіка (список пайплайнів, пошук знімка) спільна з консольним меню common/menu.py.
+Список пайплайнів і назви стадій беруться з config/pipelines.yaml.
 """
 from __future__ import annotations
 
@@ -24,8 +24,6 @@ if __name__ == "__main__" and VENV_PYTHON.exists() \
 sys.path.insert(0, str(ROOT_DIR))  # щоб працювали імпорти common.* і src.*
 
 import tkinter as tk  # noqa: E402
-
-from common import menu  # noqa: E402
 from tkinter import filedialog, ttk  # noqa: E402
 
 from PIL import Image, ImageTk  # noqa: E402
@@ -34,6 +32,42 @@ from common.io import ImageLoadError, open_image  # noqa: E402
 from common.pipeline_runner import RESULTS_DIR, load_config, run_pipeline  # noqa: E402
 
 THUMB_SIZE = 230
+SAMPLES_DIR = ROOT_DIR / "data" / "samples"
+DEFAULT_IMAGE = "river_02.jpg"
+MEMBER_NAMES = {
+    "member1": "Олександр Агапов",
+    "member2": "Тимофій Стукало",
+    "member3": "Микола Ковальський",
+}
+
+
+def list_pipelines(config: dict) -> list[dict]:
+    """Усі пайплайни з конфігу по порядку: member1/pipeline1 -> №1, ..., member3/pipeline2 -> №6."""
+    pipelines = []
+    for member, member_pipelines in config["members"].items():
+        for key, pipeline in member_pipelines.items():
+            stages = [part.strip() for part in pipeline.get("description", "").split("->")]
+            pipelines.append({
+                "number": len(pipelines) + 1,
+                "member": member,
+                "key": key,
+                "author": MEMBER_NAMES.get(member, member),
+                "stages": [f"{index}. {name}" for index, name in enumerate(stages, start=1)],
+            })
+    return pipelines
+
+
+def resolve_image_path(text: str, default: str = DEFAULT_IMAGE) -> Path | None:
+    """Перетворює введений текст на шлях до файлу.
+
+    Порожній рядок — знімок за замовчуванням; лапки навколо шляху прибираються;
+    якщо файлу немає, шукаємо таке ім'я в data/samples (можна без .jpg).
+    """
+    text = text.strip().strip('"').strip("'") or default
+    for candidate in (Path(text), SAMPLES_DIR / text, SAMPLES_DIR / f"{text}.jpg"):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def pipeline_label(pipeline: dict) -> str:
@@ -47,14 +81,13 @@ def process(pipeline: dict, image_path: Path) -> dict:
     metrics = run_pipeline(pipeline["member"], pipeline["key"], image_path)
     output_dir = RESULTS_DIR / pipeline["member"] / pipeline["key"] / image_path.stem
     images = [open_image(image_path)] + [open_image(p) for p in sorted(output_dir.glob("stage_*.png"))]
-    menu.build_comparison(images[0], images[1:], pipeline["stages"]).save(output_dir / "comparison.png")
     return {"metrics": metrics, "output_dir": output_dir, "images": images}
 
 
 class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.pipelines = menu.list_pipelines(load_config())
+        self.pipelines = list_pipelines(load_config())
         self.output_dir: Path | None = None
         self._photos: list[ImageTk.PhotoImage] = []  # Tkinter не тримає посилання на картинки сам
 
@@ -71,7 +104,7 @@ class App:
         self.pipeline_box.grid(row=0, column=1, columnspan=3, sticky="we", pady=2)
 
         ttk.Label(frame, text="Знімок:").grid(row=1, column=0, sticky="w")
-        self.image_var = tk.StringVar(value=str(menu.SAMPLES_DIR / menu.DEFAULT_IMAGE))
+        self.image_var = tk.StringVar(value=str(SAMPLES_DIR / DEFAULT_IMAGE))
         ttk.Entry(frame, textvariable=self.image_var, width=80).grid(row=1, column=1, columnspan=2, sticky="we", pady=2)
         ttk.Button(frame, text="Обрати файл…", command=self.choose_file).grid(row=1, column=3, sticky="e", padx=(6, 0))
 
@@ -102,14 +135,14 @@ class App:
 
     def choose_file(self) -> None:
         path = filedialog.askopenfilename(
-            title="Оберіть знімок", initialdir=menu.SAMPLES_DIR,
+            title="Оберіть знімок", initialdir=SAMPLES_DIR,
             filetypes=[("Зображення", "*.jpg *.jpeg *.png *.bmp *.tif *.tiff"), ("Усі файли", "*.*")])
         if path:
             self.image_var.set(path)
 
     def start(self) -> None:
         pipeline = self.pipelines[self.pipeline_box.current()]
-        image_path = menu.resolve_image_path(self.image_var.get())
+        image_path = resolve_image_path(self.image_var.get())
         if image_path is None:
             self.status.config(text="Файл не знайдено. Перевірте шлях або оберіть файл кнопкою.", foreground="red")
             return
