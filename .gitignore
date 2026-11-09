@@ -18,6 +18,11 @@ Thumbs.db
 # відтворюються запуском common/compare.py, у репозиторій не кладемо.
 results/
 
+# Залежності генератора звіту (report/build/) — ставляться через npm install,
+# не кладемо в репозиторій.
+report/build/node_modules/
+report/build/*.docx
+
 # Повна вибірка зображень (велика, завантажується за інструкцією в data/README.md).
 # Невелику демонстраційну підмножину тримаємо в data/samples/.
 data/full/
