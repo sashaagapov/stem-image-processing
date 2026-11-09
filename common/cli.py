@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from common.io import ImageLoadError
 from common.pipeline_runner import run_pipeline
 
 
@@ -13,7 +14,10 @@ def main() -> None:
     parser.add_argument("--image", required=True, type=Path, help="шлях до вхідного зображення")
     args = parser.parse_args()
 
-    metrics = run_pipeline(args.member, args.pipeline, args.image)
+    try:
+        metrics = run_pipeline(args.member, args.pipeline, args.image)
+    except ImageLoadError as error:
+        raise SystemExit(f"Помилка: {error}") from error
 
     print(f"Готово: {args.member}/{args.pipeline} на {args.image.name}")
     for key, value in metrics.items():
