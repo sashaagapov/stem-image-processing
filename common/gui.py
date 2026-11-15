@@ -57,6 +57,14 @@ def list_pipelines(config: dict) -> list[dict]:
     return pipelines
 
 
+def list_sample_images() -> list[str]:
+    """Імена файлів у data/samples, відсортовано — щоб одразу бачити, які знімки є,
+    а не вгадувати ім'я чи відкривати системний діалог."""
+    if not SAMPLES_DIR.is_dir():
+        return []
+    return sorted(p.name for p in SAMPLES_DIR.iterdir() if p.suffix.lower() == ".jpg")
+
+
 def resolve_image_path(text: str, default: str = DEFAULT_IMAGE) -> Path | None:
     """Перетворює введений текст на шлях до файлу.
 
@@ -104,8 +112,12 @@ class App:
         self.pipeline_box.grid(row=0, column=1, columnspan=3, sticky="we", pady=2)
 
         ttk.Label(frame, text="Знімок:").grid(row=1, column=0, sticky="w")
-        self.image_var = tk.StringVar(value=str(SAMPLES_DIR / DEFAULT_IMAGE))
-        ttk.Entry(frame, textvariable=self.image_var, width=80).grid(row=1, column=1, columnspan=2, sticky="we", pady=2)
+        self.image_var = tk.StringVar(value=DEFAULT_IMAGE)
+        # Комбобокс одразу показує всі знімки з data/samples (не читабельний —
+        # можна і обрати зі списку, і ввести свій шлях вручну).
+        self.image_box = ttk.Combobox(frame, textvariable=self.image_var, width=77,
+                                       values=list_sample_images())
+        self.image_box.grid(row=1, column=1, columnspan=2, sticky="we", pady=2)
         ttk.Button(frame, text="Обрати файл…", command=self.choose_file).grid(row=1, column=3, sticky="e", padx=(6, 0))
 
         self.run_button = ttk.Button(frame, text="▶ Запустити", command=self.start)
