@@ -13,6 +13,9 @@ from PIL import Image
 
 
 def apply(image: Image.Image, angle_degrees: float = 15, scale: float = 1.0) -> Image.Image:
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError("scale має бути скінченним числом, більшим за 0")
+
     array = np.asarray(image.convert("RGB"), dtype=np.uint8)
     height, width = array.shape[:2]
     center_y, center_x = (height - 1) / 2, (width - 1) / 2
