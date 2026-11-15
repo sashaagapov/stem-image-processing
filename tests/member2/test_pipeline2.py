@@ -12,7 +12,7 @@ from common.metrics import calculate_psnr
 from common.pipeline_runner import RESULTS_DIR, run_pipeline
 from tests.member2.scene import add_noise, as_image, make_scene
 from src.member2.pipeline2 import stage_1_fourier_filter, stage_2_texture_analysis, stage_3_unsharp_mask
-from src.member2.pipeline2.stage_2_texture_analysis import glcm, glcm_features, quantize, texture_map
+from src.member2.pipeline2.stage_2_texture_analysis import glcm, glcm_contrast, quantize, texture_map
 
 
 def gray_image(values) -> Image.Image:
@@ -29,18 +29,11 @@ def channel(image: Image.Image) -> np.ndarray:
 def test_lowpass_removes_checkerboard_by_hand() -> None:
     # Шахівниця 0/200 = 100 + 100 * (-1)^(x+y): у спектрі лише нульова частота
     # (середнє 100) і частота Найквіста на відстані sqrt(2^2 + 2^2) = 2.83 від
-    # центру. Ідеальний фільтр з cutoff = 1 лишає тільки середнє -> усе 100.
+    # центру. Маска при cutoff = 0.5 там exp(-8 / 0.5) = 1e-7 -> лишається
+    # тільки середнє, усе 100.
     board = [[200 if (x + y) % 2 else 0 for x in range(4)] for y in range(4)]
-    result = channel(stage_1_fourier_filter.apply(gray_image(board), cutoff=1, kind="ideal"))
+    result = channel(stage_1_fourier_filter.apply(gray_image(board), cutoff=0.5))
     assert np.all(result == 100)
-
-
-def test_highpass_of_constant_gives_128() -> None:
-    # Однотонне зображення — лише нульова частота; високочастотна маска в
-    # центрі = 1 - 1 = 0, лишається 0, плюс зсув 128.
-    image = Image.new("RGB", (6, 6), (77, 77, 77))
-    result = channel(stage_1_fourier_filter.apply(image, cutoff=2, mode="highpass"))
-    assert np.all(result == 128)
 
 
 def test_lowpass_keeps_constant_colour() -> None:
@@ -78,13 +71,8 @@ def test_glcm_by_hand() -> None:
     matrix = glcm(q, levels=3)
     assert np.allclose(matrix * 12, [[2, 2, 0], [2, 2, 0], [0, 0, 4]])
 
-    f = glcm_features(matrix)
     # contrast = (2 + 2) / 12 * 1^2 = 1/3
-    assert abs(f["contrast"] - 1 / 3) < 1e-12
-    # homogeneity = (2 + 2 + 4) / 12 * 1 + (2 + 2) / 12 * 1/2 = 10/12
-    assert abs(f["homogeneity"] - 10 / 12) < 1e-12
-    # energy = sqrt((4 + 4 + 4 + 4 + 16) / 144) = sqrt(32) / 12
-    assert abs(f["energy"] - np.sqrt(32) / 12) < 1e-12
+    assert abs(glcm_contrast(matrix) - 1 / 3) < 1e-12
 
 
 def test_texture_map_center_by_hand() -> None:
@@ -92,7 +80,7 @@ def test_texture_map_center_by_hand() -> None:
     # порівнюється сам із собою):
     #   рядок 0: |0-0|=0, |0-1|=1, 0;  рядок 1: |0-1|=1, 0, 0;  рядок 2: 0, 0, 0
     # Контраст у вікні 3x3 навколо центру = середнє квадратів = 2/9.
-    tmap = texture_map(np.array(SMALL, dtype=float), "contrast", window=3, levels=3)
+    tmap = texture_map(np.array(SMALL, dtype=float), window=3, levels=3)
     assert abs(tmap[1, 1] - 2 / 9) < 1e-12
 
 
@@ -109,14 +97,18 @@ def test_texture_map_separates_rough_and_smooth_halves() -> None:
 # ---------- стадія 3: unsharp mask ----------
 
 def test_unsharp_mask_of_impulse_by_hand() -> None:
-    # Розмите значення беремо з тесту Гаусса (sigma = 1, radius = 1):
-    #   центр 20.418, сторона 12.384, кут 7.511.
+    # Ядро Гаусса sigma = 1 має радіус ceil(3 * 1) = 3 (7x7), сума ваг
+    # (1 + 2e^-0.5 + 2e^-2 + 2e^-4.5)^2 = 2.50596^2 = 6.27984.
+    # Розмите значення в центрі: 100 / 6.27984 = 15.924.
     # result = original + 1 * (original - blurred):
-    #   центр 100 + (100 - 20.418) = 179.58 -> 180
-    #   сторони та кути 0 + (0 - 12.38) < 0 -> обрізається до 0
-    image = gray_image([[0, 0, 0], [0, 100, 0], [0, 0, 0]])
-    result = channel(stage_3_unsharp_mask.apply(image, amount=1.0, sigma=1.0, radius=1))
-    assert result.tolist() == [[0, 0, 0], [0, 180, 0], [0, 0, 0]]
+    #   центр 100 + (100 - 15.924) = 184.08 -> 184
+    #   решта 0 + (0 - розмите) < 0 -> обрізається до 0
+    values = np.zeros((7, 7), dtype=np.uint8)
+    values[3, 3] = 100
+    result = channel(stage_3_unsharp_mask.apply(gray_image(values), amount=1.0, sigma=1.0))
+    expected = np.zeros((7, 7), dtype=int)
+    expected[3, 3] = 184
+    assert result.tolist() == expected.tolist()
 
 
 def test_unsharp_mask_amount_zero_changes_nothing() -> None:
