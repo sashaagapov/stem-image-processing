@@ -1,8 +1,7 @@
-from PIL import Image
 from src.member2.image_ops import from_array, gaussian_blur, to_rgb_array
 
 
-def apply(image: Image.Image, amount: float = 1.0, sigma: float = 2.0) -> Image.Image:
+def apply(image, amount=1.0, sigma=2.0):
     original = to_rgb_array(image)
     blurred = gaussian_blur(original, sigma)
     return from_array(original + amount * (original - blurred))
