@@ -1,13 +1,12 @@
 import numpy as np
-from PIL import Image
 from src.member2.image_ops import box_mean, from_array, shift, to_gray_array
 
 
-def quantize(gray: np.ndarray, levels: int) -> np.ndarray:
+def quantize(gray, levels):
     return np.clip((gray * levels / 256).astype(int), 0, levels - 1)
 
 
-def glcm(quantized: np.ndarray, levels: int) -> np.ndarray:
+def glcm(quantized, levels):
     # GLCM для пар "піксель - правий сусід"; пара (i, j) і (j, i) рахуються обидві
     matrix = np.zeros((levels, levels))
     height, width = quantized.shape
@@ -19,20 +18,20 @@ def glcm(quantized: np.ndarray, levels: int) -> np.ndarray:
     return matrix / matrix.sum()
 
 
-def glcm_contrast(matrix: np.ndarray) -> float:
+def glcm_contrast(matrix):
     levels = matrix.shape[0]
     i, j = np.mgrid[0:levels, 0:levels]
     return float(np.sum(matrix * (i - j) ** 2))
 
 
-def texture_map(gray: np.ndarray, window: int, levels: int) -> np.ndarray:
+def texture_map(gray, window, levels):
     # контраст GLCM у вікні = середнє (i - j)^2 по парах сусідів у цьому вікні
     quantized = quantize(gray, levels)
     right = shift(quantized, 0, 1, 1)
     return box_mean((quantized - right).astype(float) ** 2, window)
 
 
-def apply(image: Image.Image, window: int = 9, levels: int = 16) -> Image.Image:
+def apply(image, window=9, levels=16):
     contrast = texture_map(to_gray_array(image), window, levels)
     peak = contrast.max()
     if peak > 0:

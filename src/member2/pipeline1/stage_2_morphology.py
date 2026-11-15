@@ -1,15 +1,14 @@
 import numpy as np
-from PIL import Image
 from src.member2.image_ops import from_array, shift, to_gray_array
 
 
-def disk(radius: int) -> np.ndarray:
+def disk(radius):
     offsets = np.arange(-radius, radius + 1)
     xx, yy = np.meshgrid(offsets, offsets)
     return xx**2 + yy**2 <= radius**2
 
 
-def binary_morphology(mask: np.ndarray, operation: str, radius: int) -> np.ndarray:
+def binary_morphology(mask, operation, radius):
     element = disk(radius)
     if operation == "erosion":
         result = np.ones_like(mask)
@@ -28,7 +27,7 @@ def binary_morphology(mask: np.ndarray, operation: str, radius: int) -> np.ndarr
     return result
 
 
-def apply(image: Image.Image, operation: str = "erosion", radius: int = 1) -> Image.Image:
+def apply(image, operation="erosion", radius=1):
     gray = to_gray_array(image)
     mask = gray > gray.mean()
     return from_array(binary_morphology(mask, operation, radius) * 255.0)

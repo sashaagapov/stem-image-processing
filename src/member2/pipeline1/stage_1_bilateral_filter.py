@@ -1,10 +1,9 @@
 import math
 import numpy as np
-from PIL import Image
 from src.member2.image_ops import from_array, shift, to_rgb_array
 
 
-def bilateral_filter(rgb: np.ndarray, sigma_spatial: float, sigma_range: float) -> np.ndarray:
+def bilateral_filter(rgb, sigma_spatial, sigma_range):
     radius = math.ceil(2 * sigma_spatial)
     weighted_sum = np.zeros_like(rgb)
     weight_total = np.zeros(rgb.shape[:2])
@@ -19,5 +18,5 @@ def bilateral_filter(rgb: np.ndarray, sigma_spatial: float, sigma_range: float) 
     return weighted_sum / weight_total[..., None]
 
 
-def apply(image: Image.Image, sigma_spatial: float = 2.0, sigma_range: float = 50.0) -> Image.Image:
+def apply(image, sigma_spatial=2.0, sigma_range=50.0):
     return from_array(bilateral_filter(to_rgb_array(image), sigma_spatial, sigma_range))
