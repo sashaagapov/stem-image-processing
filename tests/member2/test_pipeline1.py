@@ -7,6 +7,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from common.metrics import calculate_psnr, calculate_ssim
@@ -34,17 +35,18 @@ IMPULSE = [[0, 0, 0], [0, 100, 0], [0, 0, 0]]
 def test_bilateral_with_tiny_sigma_range_keeps_image() -> None:
     # sigma_range дуже мала: вага сусіда з іншим кольором exp(-30000 / 2e-6) = 0,
     # тож кожен піксель усереднюється лише з собі рівними -> зображення не змінюється.
-    result = channel(stage_1_bilateral_filter.apply(gray_image(IMPULSE), sigma_spatial=1, sigma_range=0.001, radius=1))
+    result = channel(stage_1_bilateral_filter.apply(gray_image(IMPULSE), sigma_spatial=1, sigma_range=0.001))
     assert result.tolist() == IMPULSE
 
 
 def test_bilateral_with_huge_sigma_range_equals_gaussian_by_hand() -> None:
     # sigma_range дуже велика: кольорова вага = 1, лишається лише просторова
-    # e^-(dx^2+dy^2)/2 -> це гаусове ядро sigma = 1 з сумою 4.89764.
-    # центр 100/4.898 = 20.42 -> 20, сторона 100*e^-0.5/4.898 = 12.38 -> 12,
-    # кут 100*e^-1/4.898 = 7.51 -> 8.
-    result = channel(stage_1_bilateral_filter.apply(gray_image(IMPULSE), sigma_spatial=1, sigma_range=1e9, radius=1))
-    assert result.tolist() == [[8, 12, 8], [12, 20, 12], [8, 12, 8]]
+    # e^-(dx^2+dy^2)/2 у вікні 5x5 (радіус ceil(2 * 1) = 2). Сума ваг:
+    # (1 + 2e^-0.5 + 2e^-2)^2 = 2.48373^2 = 6.16891 (за краєм нулі, бо край зображення 0).
+    # центр 100/6.169 = 16.21 -> 16, сторона 100*e^-0.5/6.169 = 9.83 -> 10,
+    # кут 100*e^-1/6.169 = 5.96 -> 6.
+    result = channel(stage_1_bilateral_filter.apply(gray_image(IMPULSE), sigma_spatial=1, sigma_range=1e9))
+    assert result.tolist() == [[6, 10, 6], [10, 16, 10], [6, 10, 6]]
 
 
 def test_bilateral_keeps_edge_that_gaussian_blurs() -> None:
@@ -103,13 +105,9 @@ def test_binary_erosion_removes_single_bright_pixel() -> None:
     assert channel(stage_2_morphology.apply(gray_image(values), operation="erosion")).max() == 0
 
 
-def test_invert_makes_dark_objects_white() -> None:
-    # Темна "водойма" 3x3 на світлому фоні: середнє = (16*200)/25 = 128,
-    # з invert об'єктом стає те, що темніше -> маска = квадрат.
-    values = np.full((5, 5), 200, dtype=np.uint8)
-    values[1:4, 1:4] = 0
-    result = channel(stage_2_morphology.apply(gray_image(values), operation="erosion", radius=1, invert=True))
-    assert result[2, 2] == 255 and result.sum() == 255
+def test_unknown_morphology_operation_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        stage_2_morphology.apply(gray_image(SQUARE), operation="opening")
 
 
 # ---------- стадія 3: Лаплас ----------
@@ -121,6 +119,11 @@ def test_laplacian_of_impulse_by_hand() -> None:
     image = gray_image([[0, 0, 0], [0, 10, 0], [0, 0, 0]])
     result = channel(stage_3_laplacian.apply(image, neighbors=4))
     assert result.tolist() == [[0, 64, 0], [64, 255, 64], [0, 64, 0]]
+
+
+def test_laplacian_rejects_wrong_neighbour_count() -> None:
+    with pytest.raises(ValueError):
+        stage_3_laplacian.apply(gray_image(IMPULSE), neighbors=6)
 
 
 def test_laplacian_of_flat_image_is_zero() -> None:

@@ -1,28 +1,16 @@
-from __future__ import annotations
-
 import math
-
 import numpy as np
 from PIL import Image
+from src.member2.image_ops import from_array, shift, to_rgb_array
 
-from src.member2.image_ops import from_array, to_rgb_array
 
-
-def bilateral_filter(rgb: np.ndarray, sigma_spatial: float = 2.0, sigma_range: float = 30.0,
-                     radius: int | None = None) -> np.ndarray:
-    if sigma_spatial <= 0 or sigma_range <= 0:
-        raise ValueError("sigma_spatial і sigma_range мають бути більшими за 0")
-    if radius is None:
-        radius = math.ceil(2 * sigma_spatial)
-    height, width = rgb.shape[:2]
-    padded = np.pad(rgb, ((radius, radius), (radius, radius), (0, 0)), mode="edge")
-
+def bilateral_filter(rgb: np.ndarray, sigma_spatial: float, sigma_range: float) -> np.ndarray:
+    radius = math.ceil(2 * sigma_spatial)
     weighted_sum = np.zeros_like(rgb)
-    weight_total = np.zeros((height, width))
+    weight_total = np.zeros(rgb.shape[:2])
     for dy in range(-radius, radius + 1):
         for dx in range(-radius, radius + 1):
-            # сусід на відстані (dy, dx) — для всіх пікселів одразу
-            neighbour = padded[radius + dy : radius + dy + height, radius + dx : radius + dx + width]
+            neighbour = shift(rgb, dy, dx, radius)
             spatial = math.exp(-(dx * dx + dy * dy) / (2 * sigma_spatial**2))
             colour_distance = np.sum((neighbour - rgb) ** 2, axis=2)
             weight = spatial * np.exp(-colour_distance / (2 * sigma_range**2))
@@ -31,6 +19,5 @@ def bilateral_filter(rgb: np.ndarray, sigma_spatial: float = 2.0, sigma_range: f
     return weighted_sum / weight_total[..., None]
 
 
-def apply(image: Image.Image, sigma_spatial: float = 2.0, sigma_range: float = 30.0,
-          radius: int | None = None) -> Image.Image:
-    return from_array(bilateral_filter(to_rgb_array(image), sigma_spatial, sigma_range, radius))
+def apply(image: Image.Image, sigma_spatial: float = 2.0, sigma_range: float = 50.0) -> Image.Image:
+    return from_array(bilateral_filter(to_rgb_array(image), sigma_spatial, sigma_range))
