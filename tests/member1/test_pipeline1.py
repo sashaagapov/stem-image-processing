@@ -2,6 +2,7 @@
 перетворення. Критерій C3: для кожної стадії — очікуваний результат, порахований
 вручну на малому зображенні."""
 import numpy as np
+import pytest
 from PIL import Image
 
 from src.member1.pipeline1.stage_1_sobel import apply as sobel_apply
@@ -103,3 +104,11 @@ def test_geometric_transform_accepts_small_image() -> None:
     result = transform_apply(tiny_image, angle_degrees=15, scale=1.0)
 
     assert result.size == (3, 3)
+
+
+@pytest.mark.parametrize("scale", [0, -1, float("nan"), float("inf")])
+def test_geometric_transform_rejects_invalid_scale(scale: float) -> None:
+    image = Image.new("RGB", (3, 3), (7, 7, 7))
+
+    with pytest.raises(ValueError, match="scale"):
+        transform_apply(image, scale=scale)
