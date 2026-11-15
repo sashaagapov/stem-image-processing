@@ -16,7 +16,7 @@ def main() -> None:
 
     try:
         metrics = run_pipeline(args.member, args.pipeline, args.image)
-    except ImageLoadError as error:
+    except (ImageLoadError, ValueError) as error:
         raise SystemExit(f"Помилка: {error}") from error
 
     print(f"Готово: {args.member}/{args.pipeline} на {args.image.name}")
