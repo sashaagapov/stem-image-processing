@@ -30,6 +30,18 @@ def test_pipeline_label_shows_number_stages_and_author():
     assert gui.pipeline_label(pipeline) == "3. A → B → C  (Тимофій Стукало)"
 
 
+def test_list_sample_images_returns_sorted_jpg_names(tmp_path, monkeypatch):
+    for name in ["river_02.jpg", "agricultural_01.jpg", "notes.txt"]:
+        Image.new("RGB", (4, 4)).save(tmp_path / name) if name.endswith(".jpg") else (tmp_path / name).write_text("x")
+    monkeypatch.setattr(gui, "SAMPLES_DIR", tmp_path)
+    assert gui.list_sample_images() == ["agricultural_01.jpg", "river_02.jpg"]
+
+
+def test_list_sample_images_handles_missing_folder(tmp_path, monkeypatch):
+    monkeypatch.setattr(gui, "SAMPLES_DIR", tmp_path / "does_not_exist")
+    assert gui.list_sample_images() == []
+
+
 def test_resolve_image_path_accepts_quoted_full_path(tmp_path):
     image = tmp_path / "scene.png"
     Image.new("RGB", (4, 4)).save(image)
