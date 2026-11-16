@@ -3,11 +3,12 @@ const path = require("path");
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
   WidthType, ShadingType, ImageRun, AlignmentType, BorderStyle, PageBreak,
+  Footer, PageNumber,
 } = require("docx");
 
 const REPO = path.resolve(__dirname, "..", "..") + path.sep;
 const ASSETS = path.join(REPO, "report", "assets") + path.sep;
-const PAGE_W = 12240, PAGE_H = 15840; // US Letter DXA
+const PAGE_W = 11906, PAGE_H = 16838; // A4 DXA (210x297 мм) — стандарт для звітів українських ЗВО
 
 function heading(text, level) {
   return new Paragraph({ text, heading: level });
@@ -109,6 +110,14 @@ const doc = new Document({
   },
   sections: [{
     properties: { page: { size: { width: PAGE_W, height: PAGE_H } } },
+    footers: {
+      default: new Footer({
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ children: [PageNumber.CURRENT], size: 18 })],
+        })],
+      }),
+    },
     children: [
       new Paragraph({ text: "Аналіз та обробка супутникових знімків земної поверхні класичними методами", style: "Title" }),
       new Paragraph({ children: [new TextRun({ text: "STEM-проєкт — звіт команди", size: 26 })], alignment: AlignmentType.CENTER, spacing: { after: 80 } }),
@@ -137,7 +146,7 @@ const doc = new Document({
       p("Пайплайн 6: перетворення Хафа для виявлення ліній (edge_threshold=100, 180 кроків по куту) → афінне перетворення (параметри — поворот/масштаб/зсув — застосовуються за результатом виявлених ліній) → корекція яскравості/контрасту (contrast=1.1) — єдиний пайплайн, чий фінальний результат лишається звичайним порівнянним зображенням (детальніше — розділ 6)."),
 
       heading("5. Лістинг ключових функцій", HeadingLevel.HEADING_1),
-      p("Повний код усіх 18 стадій і 69 тестів — у репозиторії: https://github.com/sashaagapov/stem-image-processing (гілка main, src/memberN/pipelineM/, tests/memberN/). Крім консольного `common/cli.py`, команда додала й віконну програму `common/gui.py` (Tkinter) — вибір пайплайну зі списку, вибір знімка, показ оригіналу й результату кожної стадії та метрик MSE/PSNR/SSIM в одному вікні, без консолі. Нижче — по одній представницькій функції від кожного учасника."),
+      p("Повний код усіх 18 стадій і автоматичних тестів до них — у репозиторії: https://github.com/sashaagapov/stem-image-processing (гілка main, src/memberN/pipelineM/, tests/memberN/; точна кількість тестів зростає з розвитком проєкту — перевіряється запуском `python -m pytest -q`). Крім консольного `common/cli.py`, команда додала й віконну програму `common/gui.py` (Tkinter) — вибір пайплайну зі списку, вибір знімка, показ оригіналу й результату кожної стадії та метрик MSE/PSNR/SSIM в одному вікні, без консолі. Нижче — по одній представницькій функції від кожного учасника."),
       p("member1 — обчислення градієнта Собеля (stage_1_sobel.py):"),
       codeBlock([
         "def sobel_magnitude(image: Image.Image) -> np.ndarray:",
@@ -175,6 +184,7 @@ const doc = new Document({
       p(""),
       imageRow(ASSETS + "denseresidential_before.jpg", ASSETS + "denseresidential_after_pipeline5.png", "denseresidential_01.jpg — оригінал", "Пайплайн 5: Харріс → стоншення → регіональне зростання"),
       p(""),
+      new Paragraph({ children: [new TextRun({ text: "Таблиця 1. Середні PSNR/SSIM по класах землекористування (пайплайн 6, member3)", italics: true, size: 18 })], alignment: AlignmentType.CENTER, spacing: { after: 80 } }),
       table([2800, 1800, 1800, 1200], [
         ["Клас", "PSNR, дБ", "SSIM", "n"],
         ["agricultural", "30.63", "0.991", "17"],
