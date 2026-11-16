@@ -26,10 +26,17 @@ sys.path.insert(0, str(ROOT_DIR))  # щоб працювали імпорти co
 import tkinter as tk  # noqa: E402
 from tkinter import filedialog, ttk  # noqa: E402
 
+import numpy as np  # noqa: E402
 from PIL import Image, ImageTk  # noqa: E402
 
 from common.io import ImageLoadError, open_image  # noqa: E402
 from common.pipeline_runner import RESULTS_DIR, load_config, run_pipeline  # noqa: E402
+# Перевикористовуємо саме ті функції, якими пайплайн 2 реально рахує поріг Отсу
+# й статистики, — щоб показані в GUI числа гарантовано збігалися з тими, що
+# "заховані" у дрібному тексті на зображенні стадії 3, а не дублювали формули.
+from src.member1.pipeline2.stage_2_otsu_segmentation import _to_grayscale as otsu_grayscale  # noqa: E402
+from src.member1.pipeline2.stage_2_otsu_segmentation import find_otsu_threshold  # noqa: E402
+from src.member1.pipeline2.stage_3_statistics import calculate_statistics  # noqa: E402
 
 THUMB_SIZE = 230
 SAMPLES_DIR = ROOT_DIR / "data" / "samples"
@@ -138,12 +145,21 @@ class App:
             self.image_labels.append(image_label)
             self.caption_labels.append(caption)
 
+        # Окремий читабельний блок для пайплайну 2 (Отсу + статистики): видно лише
+        # для нього, приховується для решти п'яти пайплайнів через grid_remove().
+        self.stats_frame = ttk.LabelFrame(frame, text="Статистичні характеристики (пайплайн 2)")
+        self.stats_label = ttk.Label(self.stats_frame, text="", font=("Segoe UI", 11),
+                                      justify="left", wraplength=900)
+        self.stats_label.grid(row=0, column=0, sticky="w", padx=8, pady=6)
+        self.stats_frame.grid(row=4, column=0, columnspan=4, sticky="we", pady=(6, 0))
+        self.stats_frame.grid_remove()
+
         self.metrics_label = ttk.Label(frame, text="", font=("Segoe UI", 11, "bold"))
-        self.metrics_label.grid(row=4, column=0, columnspan=4, sticky="w", pady=(6, 0))
+        self.metrics_label.grid(row=5, column=0, columnspan=4, sticky="w", pady=(6, 0))
         self.folder_label = ttk.Label(frame, text="")
-        self.folder_label.grid(row=5, column=0, columnspan=3, sticky="w")
+        self.folder_label.grid(row=6, column=0, columnspan=3, sticky="w")
         self.folder_button = ttk.Button(frame, text="Відкрити папку", command=self.open_folder, state="disabled")
-        self.folder_button.grid(row=5, column=3, sticky="e")
+        self.folder_button.grid(row=6, column=3, sticky="e")
 
     def choose_file(self) -> None:
         path = filedialog.askopenfilename(
@@ -190,6 +206,11 @@ class App:
             else:
                 label.config(image=self._placeholder)
                 self.caption_labels[index].config(text="")
+        if pipeline["member"] == "member1" and pipeline["key"] == "pipeline2":
+            self._show_otsu_statistics(result["images"])
+        else:
+            self.stats_frame.grid_remove()
+
         metrics = result["metrics"]
         self.metrics_label.config(text=f"MSE = {metrics['mse_vs_original']}     "
                                        f"PSNR = {metrics['psnr_vs_original']} дБ     "
@@ -197,6 +218,32 @@ class App:
         self.output_dir = result["output_dir"]
         self.folder_label.config(text=f"Результати: {self.output_dir.relative_to(ROOT_DIR)}")
         self.folder_button.config(state="normal")
+
+    def _show_otsu_statistics(self, images: list[Image.Image]) -> None:
+        """Рахує для пайплайну 2 ті самі поріг Отсу й статистики, що й сама стадія
+        (тими самими функціями — тут нічого не передобчислюється інакше), і показує
+        їх великим читабельним текстом замість дрібного напису на мініатюрі."""
+        color_corrected = images[1]  # результат стадії 1 (баланс білого + HSV) — вхід Отсу
+        mask = images[2]  # результат стадії 2 (маска Отсу) — вхід статистики, без тексту
+        array = np.asarray(color_corrected.convert("RGB"), dtype=np.float64)
+        threshold = find_otsu_threshold(otsu_grayscale(array))
+        stats = calculate_statistics(mask)
+
+        self.stats_label.config(
+            text=(f"Поріг Отсу (підібраний автоматично): {threshold}\n"
+                  f"Середня яскравість маски (mean): {stats['mean']:.2f}\n"
+                  f"Дисперсія яскравості (variance): {stats['variance']:.2f}\n"
+                  f"Ентропія (entropy): {stats['entropy']:.3f} біт — на бінарній масці "
+                  f"це лише співвідношення чорних і білих пікселів, а не текстура "
+                  f"початкової сцени."))
+        self.stats_frame.grid()
+
+        # Мініатюра "3. Статистичні характеристики" далі показує саму маску Отсу —
+        # сама стадія її не змінює, лише рахує по ній числа (вище), тож дрібний
+        # нечитабельний напис на зображенні тут не потрібен.
+        clean_photo = ImageTk.PhotoImage(mask.convert("RGB").resize((THUMB_SIZE, THUMB_SIZE), Image.NEAREST))
+        self._photos[3] = clean_photo
+        self.image_labels[3].config(image=clean_photo)
 
     def open_folder(self) -> None:
         if not self.output_dir:

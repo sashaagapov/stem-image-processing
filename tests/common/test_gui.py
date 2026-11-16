@@ -86,5 +86,61 @@ def test_window_builds_with_all_six_pipelines():
         root.update_idletasks()
         # порожні рамки під картинки мають бути в пікселях, а не в символах (вікно не на весь екран)
         assert root.winfo_reqwidth() < 1400 and root.winfo_reqheight() < 800
+        # блок статистики пайплайну 2 не займає місця, поки пайплайн 2 не запущено
+        assert not app.stats_frame.grid_info()
+    finally:
+        root.destroy()
+
+
+def test_show_otsu_statistics_matches_the_real_pipeline_functions():
+    try:
+        root = gui.tk.Tk()
+    except gui.tk.TclError:
+        pytest.skip("немає графічного середовища")
+    try:
+        app = gui.App(root)
+        rng = np.random.default_rng(1)
+        original = Image.fromarray(rng.integers(0, 256, (16, 16, 3), dtype=np.uint8))
+        color_corrected = Image.fromarray(rng.integers(0, 256, (16, 16, 3), dtype=np.uint8))
+        mask_array = (rng.integers(0, 2, (16, 16)) * 255).astype(np.uint8)
+        mask = Image.fromarray(np.stack([mask_array] * 3, axis=-1))
+        statistics_thumb = mask.copy()  # заглушка замість реального stage_3.png з дрібним текстом
+
+        pipeline = next(p for p in app.pipelines if p["number"] == 2)
+        app._show_result(pipeline, gui.SAMPLES_DIR / "river_02.jpg", {
+            "images": [original, color_corrected, mask, statistics_thumb],
+            "metrics": {"mse_vs_original": 0, "psnr_vs_original": 0, "ssim_vs_original": 0},
+            "output_dir": gui.SAMPLES_DIR,
+        })
+
+        # ті самі функції, якими рахує сама стадія — число має збігатися до символу.
+        array = np.asarray(color_corrected.convert("RGB"), dtype=np.float64)
+        expected_threshold = gui.find_otsu_threshold(gui.otsu_grayscale(array))
+        expected_stats = gui.calculate_statistics(mask)
+
+        assert app.stats_frame.grid_info()  # блок показано
+        text = app.stats_label["text"]
+        assert str(expected_threshold) in text
+        assert f"{expected_stats['mean']:.2f}" in text
+        assert f"{expected_stats['variance']:.2f}" in text
+        assert f"{expected_stats['entropy']:.3f}" in text
+    finally:
+        root.destroy()
+
+
+def test_other_pipelines_keep_stats_frame_hidden():
+    try:
+        root = gui.tk.Tk()
+    except gui.tk.TclError:
+        pytest.skip("немає графічного середовища")
+    try:
+        app = gui.App(root)
+        app.stats_frame.grid()  # імітує, що попереднім пайплайном міг бути пайплайн 2
+        pipeline = next(p for p in app.pipelines if p["number"] == 1)
+        app._show_result(pipeline, gui.SAMPLES_DIR / "river_02.jpg",
+                          {"images": [Image.new("RGB", (4, 4))] * 4,
+                           "metrics": {"mse_vs_original": 0, "psnr_vs_original": 0, "ssim_vs_original": 0},
+                           "output_dir": gui.SAMPLES_DIR})
+        assert not app.stats_frame.grid_info()
     finally:
         root.destroy()
