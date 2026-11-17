@@ -1,18 +1,23 @@
-"""Стадія 1 пайплайну 2 (member2): Перетворення Фур'є — FFT + частотна фільтрація.
-
-TODO(member2): реалізувати вручну (без готових функцій бібліотек комп'ютерного
-зору — Pillow/numpy можна використовувати лише для вводу/виводу та базової
-математики, не для самого алгоритму). Підказка: numpy.fft.fft2 на grayscale-каналі, застосувати маску низьких/високих частот за радіусом cutoff, numpy.fft.ifft2 назад. FFT із numpy — математика, не готовий алгоритм обробки зображень, тому дозволено.
-
-Поки що — заглушка: повертає зображення без змін, щоб pipeline_runner.py міг
-виконати весь пайплайн end-to-end вже зараз (common/ тестується незалежно від
-того, чи готові особисті стадії).
-"""
-from __future__ import annotations
-
-from PIL import Image
+import numpy as np
+from src.member2.image_ops import from_array, to_rgb_array
 
 
-def apply(image: Image.Image, cutoff: int = 30) -> Image.Image:
-    # TODO(member2): замінити заглушку на реальну реалізацію FFT + частотна фільтрація.
-    return image.convert("RGB")
+def lowpass_mask(height, width, cutoff):
+    # відстань D від центру спектра; маска Гаусса exp(-D^2 / (2 cutoff^2))
+    v = np.arange(height) - height // 2
+    u = np.arange(width) - width // 2
+    uu, vv = np.meshgrid(u, v)
+    distance_sq = uu**2 + vv**2
+    return np.exp(-distance_sq / (2 * cutoff**2))
+
+
+def lowpass_filter(channel, cutoff):
+    spectrum = np.fft.fftshift(np.fft.fft2(channel))
+    filtered = spectrum * lowpass_mask(channel.shape[0], channel.shape[1], cutoff)
+    return np.real(np.fft.ifft2(np.fft.ifftshift(filtered)))
+
+
+def apply(image, cutoff=40):
+    rgb = to_rgb_array(image)
+    channels = [lowpass_filter(rgb[..., c], cutoff) for c in range(3)]
+    return from_array(np.stack(channels, axis=2))

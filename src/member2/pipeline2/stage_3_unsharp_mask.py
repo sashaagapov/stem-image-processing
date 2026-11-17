@@ -1,18 +1,7 @@
-"""Стадія 3 пайплайну 2 (member2): Ретушування — Підвищення різкості (unsharp mask).
-
-TODO(member2): реалізувати вручну (без готових функцій бібліотек комп'ютерного
-зору — Pillow/numpy можна використовувати лише для вводу/виводу та базової
-математики, не для самого алгоритму). Підказка: result = original + amount * (original - blurred); blurred можна взяти з власної gaussian-реалізації (стадія 1 цього ж пайплайну).
-
-Поки що — заглушка: повертає зображення без змін, щоб pipeline_runner.py міг
-виконати весь пайплайн end-to-end вже зараз (common/ тестується незалежно від
-того, чи готові особисті стадії).
-"""
-from __future__ import annotations
-
-from PIL import Image
+from src.member2.image_ops import from_array, gaussian_blur, to_rgb_array
 
 
-def apply(image: Image.Image, amount: float = 1.0) -> Image.Image:
-    # TODO(member2): замінити заглушку на реальну реалізацію Підвищення різкості (unsharp mask).
-    return image.convert("RGB")
+def apply(image, amount=1.0, sigma=2.0):
+    original = to_rgb_array(image)
+    blurred = gaussian_blur(original, sigma)
+    return from_array(original + amount * (original - blurred))
