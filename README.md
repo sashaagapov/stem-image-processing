@@ -10,8 +10,10 @@
 
 **Реалізовано.** Спільна інфраструктура (`common/`) і всі 6 алгоритмічних
 пайплайнів (`src/member*/pipeline*/`) готові й покриті автоматичними тестами (`python -m pytest -q`; кількість тестів перевіряється під час запуску).
-Вибірка — 100 зображень (6 класів UC Merced), повний прогін усіх
-пайплайнів на ній — у `results/metrics_summary.csv`, аналіз — у
+Вибірка — 100 зображень (6 класів UC Merced). Після локального прогону
+`python -m common.compare` зведені метрики зберігаються в
+`results/metrics_summary.csv`; папка `results/` не відстежується Git.
+Збережений аналіз — у
 [`report/assets/pipeline_comparison.md`](report/assets/pipeline_comparison.md),
 повний звіт — у [`report/report.docx`](report/report.docx). Технічне
 завдання ([TZ.md](TZ.md)) — чернетка, що потребує узгодження з
